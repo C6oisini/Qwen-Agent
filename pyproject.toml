@@ -1,0 +1,98 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "qwen-agent"
+version = "0.0.31"
+description = "Qwen-Agent: Enhancing LLMs with Agent Workflows, RAG, Function Calling, and Code Interpreter."
+readme = "README.md"
+requires-python = ">=3.10"
+keywords = ["LLM", "Agent", "Function Calling", "RAG", "Code Interpreter"]
+authors = [
+    { name = "Qwen Team", email = "tujianhong.tjh@alibaba-inc.com" }
+]
+license = { text = "Apache-2.0" }
+
+# Minimal dependencies for Function Calling
+dependencies = [
+    "dashscope>=1.11.0",
+    "eval_type_backport",
+    "json5",
+    "jsonlines",
+    "jsonschema",
+    "openai",
+    "pydantic>=2.3.0",
+    "requests",
+    "tiktoken",
+    "pillow",
+    "dotenv",
+]
+
+[project.optional-dependencies]
+# Extra dependencies for RAG
+rag = [
+    "charset-normalizer",
+    "rank_bm25",
+    "jieba",
+    "snowballstemmer",
+    "beautifulsoup4",
+    "pdfminer.six",
+    "pdfplumber",
+    "python-docx",
+    "python-pptx",
+    "pandas",
+    "tabulate",
+]
+
+# Extra dependencies for MCP
+mcp = ["mcp"]
+
+# Extra dependencies for Python Executor (primarily for solving math problems)
+python_executor = [
+    "pebble",
+    "multiprocess",
+    "timeout_decorator",
+    "python-dateutil",
+    "sympy",
+    "numpy",
+    "scipy",
+]
+
+# Extra dependencies for Code Interpreter
+code_interpreter = [
+    "anyio>=3.7.1",
+    "fastapi>=0.103.1",
+    "jupyter>=1.0.0",
+    "matplotlib",
+    "numpy",
+    "pandas",
+    "pillow",
+    "seaborn",
+    "sympy",
+    "uvicorn>=0.23.2",
+]
+
+# Extra dependencies for Gradio-based GUI
+gui = [
+    "pydantic==2.9.2",
+    "pydantic-core==2.23.4",
+    "gradio==5.23.1",
+    "gradio-client==1.8.0",
+    "modelscope_studio==1.1.7",
+]
+
+[project.urls]
+Homepage = "https://github.com/QwenLM/Qwen-Agent"
+
+[tool.setuptools.packages.find]
+exclude = ["examples", "examples.*", "qwen_server", "qwen_server.*"]
+
+[tool.setuptools.package-data]
+qwen_agent = [
+    "utils/qwen.tiktoken",
+    "tools/resource/*.ttf",
+    "tools/resource/*.py",
+    "gui/assets/*.css",
+    "gui/assets/*.jpeg",
+]

@@ -43,3 +43,7 @@ test/*
 tests/env.sh
 examples/data/*
 test.db
+
+.venv
+.env
+.gradio

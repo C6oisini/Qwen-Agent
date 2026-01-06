@@ -51,15 +51,14 @@ def convert_history_to_chatbot(messages):
         return None
     chatbot_history = [[None, None]]
     for message in messages:
-        if message.keys() != {'role', 'content'}:
-            raise ValueError('Each message must be a dict containing only "role" and "content".')
+        if 'role' not in message or 'content' not in message:
+            raise ValueError('Each message must be a dict containing "role" and "content".')
         if message['role'] == USER:
             chatbot_history[-1][0] = message['content']
         elif message['role'] == ASSISTANT:
             chatbot_history[-1][1] = message['content']
             chatbot_history.append([None, None])
-        else:
-            raise ValueError(f'Message role must be {USER} or {ASSISTANT}.')
+        # Skip system and function messages - they're not displayed in chatbot
     return chatbot_history
 
 

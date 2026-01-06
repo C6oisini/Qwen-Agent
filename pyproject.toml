@@ -27,6 +27,7 @@ dependencies = [
     "tiktoken",
     "pillow",
     "dotenv",
+    "psycopg2-binary>=2.9.11",
 ]
 
 [project.optional-dependencies]

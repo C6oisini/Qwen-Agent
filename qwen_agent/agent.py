@@ -14,6 +14,7 @@
 
 import copy
 import json
+import threading
 import traceback
 from abc import ABC, abstractmethod
 from typing import Dict, Iterator, List, Optional, Tuple, Union
@@ -59,6 +60,7 @@ class Agent(ABC):
             self.llm = llm
         self.extra_generate_cfg: dict = {}
 
+        self._function_map_lock = threading.RLock()  # Reentrant lock for thread-safe tool access
         self.function_map = {}
         if function_list:
             for tool in function_list:
@@ -185,9 +187,10 @@ class Agent(ABC):
         Returns:
             The output of tools.
         """
-        if tool_name not in self.function_map:
-            return f'Tool {tool_name} does not exists.'
-        tool = self.function_map[tool_name]
+        with self._function_map_lock:
+            if tool_name not in self.function_map:
+                return f'Tool {tool_name} does not exists.'
+            tool = self.function_map[tool_name]
         try:
             tool_result = tool.call(tool_args, **kwargs)
         except (ToolServiceError, DocParserError) as ex:
@@ -212,16 +215,18 @@ class Agent(ABC):
     def _init_tool(self, tool: Union[str, Dict, BaseTool]):
         if isinstance(tool, BaseTool):
             tool_name = tool.name
-            if tool_name in self.function_map:
-                logger.warning(f'Repeatedly adding tool {tool_name}, will use the newest tool in function list')
-            self.function_map[tool_name] = tool
-        elif isinstance(tool, dict) and 'mcpServers' in tool:
-            tools = MCPManager().initConfig(tool)
-            for tool in tools:
-                tool_name = tool.name
+            with self._function_map_lock:
                 if tool_name in self.function_map:
                     logger.warning(f'Repeatedly adding tool {tool_name}, will use the newest tool in function list')
                 self.function_map[tool_name] = tool
+        elif isinstance(tool, dict) and 'mcpServers' in tool:
+            tools = MCPManager().initConfig(tool)
+            with self._function_map_lock:
+                for t in tools:
+                    tool_name = t.name
+                    if tool_name in self.function_map:
+                        logger.warning(f'Repeatedly adding tool {tool_name}, will use the newest tool in function list')
+                    self.function_map[tool_name] = t
         else:
             if isinstance(tool, dict):
                 tool_name = tool['name']
@@ -232,9 +237,11 @@ class Agent(ABC):
             if tool_name not in TOOL_REGISTRY:
                 raise ValueError(f'Tool {tool_name} is not registered.')
 
-            if tool_name in self.function_map:
-                logger.warning(f'Repeatedly adding tool {tool_name}, will use the newest tool in function list')
-            self.function_map[tool_name] = TOOL_REGISTRY[tool_name](tool_cfg)
+            tool_instance = TOOL_REGISTRY[tool_name](tool_cfg)
+            with self._function_map_lock:
+                if tool_name in self.function_map:
+                    logger.warning(f'Repeatedly adding tool {tool_name}, will use the newest tool in function list')
+                self.function_map[tool_name] = tool_instance
 
     def _detect_tool(self, message: Message) -> Tuple[bool, str, str, str]:
         """A built-in tool call detection for func_call format message.
@@ -257,6 +264,193 @@ class Agent(ABC):
             text = ''
 
         return (func_name is not None), func_name, func_args, text
+
+    # ==================== Hot-swappable Tool Management APIs ====================
+
+    def add_tool(self, tool: Union[str, Dict, BaseTool], overwrite: bool = True) -> str:
+        """Add a tool to the agent at runtime.
+
+        This method allows hot-plugging tools while the agent is running.
+        Thread-safe operation.
+
+        Args:
+            tool: Tool to add. Can be:
+                - str: Tool name registered in TOOL_REGISTRY (e.g., 'code_interpreter')
+                - dict: Tool configuration with 'name' key (e.g., {'name': 'code_interpreter', 'timeout': 10})
+                - dict: MCP configuration with 'mcpServers' key
+                - BaseTool: Direct tool instance
+            overwrite: If True, overwrite existing tool with same name. If False, raise error.
+
+        Returns:
+            The name of the added tool (or comma-separated names for MCP tools).
+
+        Raises:
+            ValueError: If tool name already exists and overwrite=False.
+            ValueError: If tool name is not in TOOL_REGISTRY.
+        """
+        if isinstance(tool, BaseTool):
+            tool_name = tool.name
+            with self._function_map_lock:
+                if tool_name in self.function_map and not overwrite:
+                    raise ValueError(f'Tool {tool_name} already exists. Set overwrite=True to replace it.')
+                if tool_name in self.function_map:
+                    logger.info(f'Replacing existing tool: {tool_name}')
+                else:
+                    logger.info(f'Adding new tool: {tool_name}')
+                self.function_map[tool_name] = tool
+            return tool_name
+        elif isinstance(tool, dict) and 'mcpServers' in tool:
+            tools = MCPManager().initConfig(tool)
+            added_names = []
+            with self._function_map_lock:
+                for t in tools:
+                    tool_name = t.name
+                    if tool_name in self.function_map and not overwrite:
+                        raise ValueError(f'Tool {tool_name} already exists. Set overwrite=True to replace it.')
+                    if tool_name in self.function_map:
+                        logger.info(f'Replacing existing tool: {tool_name}')
+                    else:
+                        logger.info(f'Adding new tool: {tool_name}')
+                    self.function_map[tool_name] = t
+                    added_names.append(tool_name)
+            return ','.join(added_names)
+        else:
+            if isinstance(tool, dict):
+                tool_name = tool['name']
+                tool_cfg = tool
+            else:
+                tool_name = tool
+                tool_cfg = None
+            if tool_name not in TOOL_REGISTRY:
+                raise ValueError(f'Tool {tool_name} is not registered in TOOL_REGISTRY.')
+
+            tool_instance = TOOL_REGISTRY[tool_name](tool_cfg)
+            with self._function_map_lock:
+                if tool_name in self.function_map and not overwrite:
+                    raise ValueError(f'Tool {tool_name} already exists. Set overwrite=True to replace it.')
+                if tool_name in self.function_map:
+                    logger.info(f'Replacing existing tool: {tool_name}')
+                else:
+                    logger.info(f'Adding new tool: {tool_name}')
+                self.function_map[tool_name] = tool_instance
+            return tool_name
+
+    def remove_tool(self, tool_name: str) -> bool:
+        """Remove a tool from the agent at runtime.
+
+        This method allows hot-unplugging tools while the agent is running.
+        Thread-safe operation.
+
+        Args:
+            tool_name: The name of the tool to remove.
+
+        Returns:
+            True if the tool was removed, False if it didn't exist.
+        """
+        with self._function_map_lock:
+            if tool_name in self.function_map:
+                del self.function_map[tool_name]
+                logger.info(f'Removed tool: {tool_name}')
+                return True
+            else:
+                logger.warning(f'Tool {tool_name} not found, nothing to remove.')
+                return False
+
+    def update_tool(self, tool: Union[str, Dict, BaseTool]) -> str:
+        """Update/replace an existing tool at runtime.
+
+        This is equivalent to add_tool with overwrite=True.
+        Thread-safe operation.
+
+        Args:
+            tool: The new tool to replace the existing one. Same formats as add_tool.
+
+        Returns:
+            The name of the updated tool.
+
+        Raises:
+            ValueError: If the tool doesn't exist. Use add_tool for new tools.
+        """
+        # Determine the tool name first
+        if isinstance(tool, BaseTool):
+            tool_name = tool.name
+        elif isinstance(tool, dict) and 'mcpServers' in tool:
+            # For MCP, we just call add_tool with overwrite
+            return self.add_tool(tool, overwrite=True)
+        elif isinstance(tool, dict):
+            tool_name = tool['name']
+        else:
+            tool_name = tool
+
+        with self._function_map_lock:
+            if tool_name not in self.function_map:
+                raise ValueError(f'Tool {tool_name} does not exist. Use add_tool() to add new tools.')
+
+        return self.add_tool(tool, overwrite=True)
+
+    def get_tool(self, tool_name: str) -> Optional[BaseTool]:
+        """Get a tool by name.
+
+        Thread-safe operation.
+
+        Args:
+            tool_name: The name of the tool.
+
+        Returns:
+            The tool instance if found, None otherwise.
+        """
+        with self._function_map_lock:
+            return self.function_map.get(tool_name)
+
+    def has_tool(self, tool_name: str) -> bool:
+        """Check if a tool exists.
+
+        Thread-safe operation.
+
+        Args:
+            tool_name: The name of the tool.
+
+        Returns:
+            True if the tool exists, False otherwise.
+        """
+        with self._function_map_lock:
+            return tool_name in self.function_map
+
+    def list_tools(self) -> List[str]:
+        """Get a list of all tool names.
+
+        Thread-safe operation.
+
+        Returns:
+            A list of tool names currently registered with the agent.
+        """
+        with self._function_map_lock:
+            return list(self.function_map.keys())
+
+    def get_tools_info(self) -> List[Dict]:
+        """Get detailed information about all tools.
+
+        Thread-safe operation.
+
+        Returns:
+            A list of dictionaries containing tool information (name, description, parameters).
+        """
+        with self._function_map_lock:
+            return [tool.function for tool in self.function_map.values()]
+
+    def clear_tools(self) -> int:
+        """Remove all tools from the agent.
+
+        Thread-safe operation.
+
+        Returns:
+            The number of tools that were removed.
+        """
+        with self._function_map_lock:
+            count = len(self.function_map)
+            self.function_map.clear()
+            logger.info(f'Cleared all {count} tools.')
+            return count
 
 
 # The most basic form of an agent is just a LLM, not augmented with any tool or workflow.

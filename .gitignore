@@ -44,6 +44,11 @@ tests/env.sh
 examples/data/*
 test.db
 
+# -------cf
 .venv
 .env
 .gradio
+*.egg-info
+z-sessions
+instruction.md
+instruction.md

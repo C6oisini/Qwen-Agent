@@ -50,5 +50,6 @@ test.db
 .gradio
 *.egg-info
 z-sessions
-instruction.md
-instruction.md
+instruction/
+tools/
+instruction/tf-instruction.md

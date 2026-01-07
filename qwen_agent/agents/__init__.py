@@ -30,6 +30,8 @@ from .group_chat_creator import GroupChatCreator
 from .human_simulator import HumanSimulator
 from .react_chat import ReActChat
 from .router import Router
+from .orchestrator import Orchestrator
+from .scheduler import AgentScheduler, ScheduledTask, TaskTemplates
 from .tir_agent import TIRMathAgent
 from .user_agent import UserAgent
 from .virtual_memory_agent import VirtualMemoryAgent
@@ -47,6 +49,10 @@ __all__ = [
     'ArticleAgent',
     'ReActChat',
     'Router',
+    'Orchestrator',
+    'AgentScheduler',
+    'ScheduledTask',
+    'TaskTemplates',
     'UserAgent',
     'GroupChat',
     'WriteFromScratch',

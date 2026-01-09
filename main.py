@@ -141,11 +141,14 @@ all_agents = [tf_agent, fx_agent, rag_agent, project_agent, general_agent]
 
 if USE_ORCHESTRATOR:
     # 使用协调器模式 - 支持 Agent 间交互
+    with open('instruction/router-instruction.md', 'r', encoding='utf-8') as f:
+        router_instruction = f.read()
     active_bot = Orchestrator(
         llm=llm_cfg,
         agents=all_agents,
         name='广告系统协调者',
-        description='协调多个专家 Agent 完成广告投放、分析、优化等任务'
+        description='协调多个专家 Agent 完成广告投放、分析、优化等任务',
+        system_message=router_instruction
     )
     print("🤖 已启用 Orchestrator 协调模式 - 支持多 Agent 交互")
 else:

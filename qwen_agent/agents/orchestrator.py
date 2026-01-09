@@ -127,7 +127,9 @@ class Orchestrator(Assistant, MultiAgentHub):
         self.shared_context = SharedContext()
 
         agent_descs = '\n'.join([f'- {a.name}: {a.description}' for a in agents])
-        system_message = ORCHESTRATOR_PROMPT.format(agent_descs=agent_descs)
+        # Use custom system_message from kwargs if provided, otherwise use default
+        custom_system_message = kwargs.pop('system_message', None)
+        system_message = custom_system_message or ORCHESTRATOR_PROMPT.format(agent_descs=agent_descs)
 
         super().__init__(
             function_list=function_list,

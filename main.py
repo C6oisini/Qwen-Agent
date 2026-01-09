@@ -125,7 +125,8 @@ project_agent = Assistant(
 general_agent = Assistant(
     llm=llm_cfg,
     name='通用助手',
-    description='处理一般性问题、知识问答、文本写作、翻译等不需要特殊工具的任务.'
+    description='处理一般性问题、知识问答、文本写作、翻译等不需要特殊工具的任务.',
+    function_list=['CodeInterpreter', 'PythonExecutor', 'WebSearch'],
 )
 
 # =============== 选择运行模式 ===============

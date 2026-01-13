@@ -51,4 +51,7 @@ test.db
 *.egg-info
 z-sessions
 
+instruction/*
+tools/
 z-scheduler/
+tmpclaude*

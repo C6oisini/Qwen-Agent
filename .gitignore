@@ -50,7 +50,5 @@ test.db
 .gradio
 *.egg-info
 z-sessions
-instruction/
-tools/
 
 z-scheduler/

@@ -126,7 +126,7 @@ general_agent = Assistant(
     llm=llm_cfg,
     name='通用助手',
     description='处理一般性问题、知识问答、文本写作、翻译等不需要特殊工具的任务.',
-    function_list=['CodeInterpreter', 'PythonExecutor', 'WebSearch'],
+    # function_list=['CodeInterpreter', 'PythonExecutor', 'WebSearch'],
 )
 
 # =============== 选择运行模式 ===============
@@ -134,7 +134,7 @@ general_agent = Assistant(
 # 模式2: Orchestrator - 协调模式，支持多 agent 交互
 # 模式3: Orchestrator + Scheduler - 协调 + 定时任务
 
-USE_ORCHESTRATOR = True  # 设置为 True 使用协调模式
+USE_ORCHESTRATOR = False  # 设置为 True 使用协调模式
 USE_SCHEDULER = False     # 设置为 True 启用定时任务
 
 # 所有专业 agent 列表
@@ -149,7 +149,7 @@ if USE_ORCHESTRATOR:
         agents=all_agents,
         name='广告系统协调者',
         description='协调多个专家 Agent 完成广告投放、分析、优化等任务',
-        system_message=router_instruction
+        # system_message=router_instruction
     )
     print("🤖 已启用 Orchestrator 协调模式 - 支持多 Agent 交互")
 else:

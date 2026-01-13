@@ -53,5 +53,4 @@ z-sessions
 instruction/
 tools/
 
-qwen_agent/agents/scheduler.py
 z-scheduler/

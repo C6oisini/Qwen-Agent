@@ -6,3 +6,10 @@
 ...
 [Orchestrator] Parsed 0 agent calls
 [Orchestrator] No agent calls found in plan, returning
+
+## 2:Router Agent有时候不知道选哪个Agent
+弄清Router的交互逻辑，类似dfs还是？具不具备回溯的能力，每次用户新的提问到的是RouterAgent还是上一轮对话的Agent
+补充提示词 or 改架构
+
+## 3:记忆模块和Prompt存储
+supabase构建日志记录和向量数据库根据用户数据快速找到合适的预定义prompt
